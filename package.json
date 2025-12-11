@@ -1,0 +1,16 @@
+{
+  "name": "vue-gpt-websocket-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
+    "@google/generative-ai": "^0.5.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "ws": "^8.18.3"
+  }
+}

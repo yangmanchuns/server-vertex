@@ -25,7 +25,8 @@ if (process.env.GOOGLE_CREDENTIALS) {
 // --------------------------------------------
 const vertexAI = new VertexAI({
   project: keyJson.project_id, // 키 JSON에서 project_id 자동 추출
-  location: process.env.GCP_LOCATION || "us-central1"
+  location: process.env.GCP_LOCATION || "us-central1",
+  credentials: keyJson
 });
 
 // HTTP + WebSocket Server
@@ -46,6 +47,7 @@ const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws) => {
   console.log("🔥 WebSocket 클라이언트 연결됨");
+    console.log("keyJson:", JSON.parse(process.env.GOOGLE_CREDENTIALS));
 
   let history = []; // 클라이언트별 대화 히스토리
 

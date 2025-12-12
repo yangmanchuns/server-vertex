@@ -12,8 +12,13 @@ import { VertexAI } from "@google-cloud/vertexai";
 // --------------------------------------------
 let keyJson;
 
-
-keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+if (process.env.GOOGLE_CREDENTIALS) {
+  // 🔹 Render 배포환경: 환경변수에서 JSON 파싱
+  keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+} else {
+  // 🔹 로컬 개발환경: vertex-key.json 파일에서 읽기
+  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
+}
 
 // --------------------------------------------
 // Vertex AI 초기화 (credentials 직접 주입)
@@ -41,8 +46,8 @@ const server = app.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws) => {
-  console.log("🔥 WebSocket 클라이언트 연결됨");
-    console.log("keyJson:", JSON.parse(process.env.GOOGLE_CREDENTIALS));
+  console.log("🔥 WebSocket 클라이언트 연결됨!!");
+    console.log("🔥keyJson:", JSON.parse(process.env.GOOGLE_CREDENTIALS));
 
   let history = []; // 클라이언트별 대화 히스토리
 

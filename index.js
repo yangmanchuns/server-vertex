@@ -9,13 +9,19 @@ import { WebSocketServer } from "ws";
 import { VertexAI } from "@google-cloud/vertexai";
 
 // 환경변수에서 키 로딩
-let keyJson;
+// let keyJson;
+
+// if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+//   const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString("utf-8");
+//   keyJson = JSON.parse(decoded);
+// } else {
+//   keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
+// }
 
 if (process.env.GOOGLE_CREDENTIALS_BASE64) {
-  const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString("utf-8");
-  keyJson = JSON.parse(decoded);
-} else {
-  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
+  const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+  fs.writeFileSync('gcp-key.json', decoded);
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = './gcp-key.json';
 }
 
 // --------------------------------------------
@@ -35,9 +41,8 @@ if (process.env.GOOGLE_CREDENTIALS_BASE64) {
 // Vertex AI 초기화 (credentials 직접 주입)
 // --------------------------------------------
 const vertexAI = new VertexAI({
-  project: keyJson.project_id,
-  location: process.env.GCP_LOCATION || "us-central1",
-  credentials: keyJson,
+  project: JSON.parse(fs.readFileSync("gcp-key.json", "utf8")).project_id,
+  location: process.env.GCP_LOCATION || "us-central1"
 });
 
 // HTTP + WebSocket Server

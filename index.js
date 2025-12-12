@@ -8,22 +8,22 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import { VertexAI } from "@google-cloud/vertexai";
 
+// 🔥 credentials 처리
 let keyJson;
 
 if (process.env.GOOGLE_CREDENTIALS) {
   const raw = process.env.GOOGLE_CREDENTIALS;
-  const fixed = raw.replace(/\\n/g, '\n'); // 🔥 줄바꿈 복원
+  const fixed = raw.replace(/\\n/g, '\n'); // 🔧 줄바꿈 복원
   keyJson = JSON.parse(fixed);
+
+  // 🔐 임시 파일로 저장
+  const path = "/tmp/gcp-key.json"; // Render에서 유일하게 안전하게 쓸 수 있는 경로
+  fs.writeFileSync(path, JSON.stringify(keyJson));
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = path;
 } else {
+  // 로컬 개발 환경
   keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
 }
-
-// Vertex AI 인증 환경 변수 등록
-process.env.GOOGLE_APPLICATION_CREDENTIALS = "/tmp/gcp-key.json"; // ⬅️ 안전한 임시 경로
-
-// 파일로 저장
-fs.writeFileSync("/tmp/gcp-key.json", JSON.stringify(keyJson));
-
 // --------------------------------------------
 // 🔑 GOOGLE_CREDENTIALS 환경변수(JSON) 파싱
 // --------------------------------------------

@@ -12,13 +12,8 @@ import { VertexAI } from "@google-cloud/vertexai";
 // --------------------------------------------
 let keyJson;
 
-if (process.env.GOOGLE_CREDENTIALS) {
-  // 🔹 Render 배포환경: 환경변수에서 JSON 파싱
-  keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-} else {
-  // 🔹 로컬 개발환경: vertex-key.json 파일에서 읽기
-  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
-}
+
+keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
 // --------------------------------------------
 // Vertex AI 초기화 (credentials 직접 주입)

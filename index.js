@@ -3,9 +3,17 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import fs from "fs";
+import path from "path";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { VertexAI } from "@google-cloud/vertexai";
+
+// keyJson을 파일로 저장
+const tempPath = path.resolve("/tmp/vertex-key.json");
+fs.writeFileSync(tempPath, process.env.GOOGLE_CREDENTIALS);
+
+// 환경변수로 경로 지정
+process.env.GOOGLE_APPLICATION_CREDENTIALS = tempPath;
 
 // --------------------------------------------
 // 🔑 GOOGLE_CREDENTIALS 환경변수(JSON) 파싱
@@ -24,9 +32,8 @@ if (process.env.GOOGLE_CREDENTIALS) {
 // Vertex AI 초기화 (credentials 직접 주입)
 // --------------------------------------------
 const vertexAI = new VertexAI({
-  project: keyJson.project_id, // 키 JSON에서 project_id 자동 추출
-  location: process.env.GCP_LOCATION || "us-central1",
-  credentials: keyJson
+  project: JSON.parse(process.env.GOOGLE_CREDENTIALS).project_id,
+  location: process.env.GCP_LOCATION || "us-central1"
 });
 
 // HTTP + WebSocket Server

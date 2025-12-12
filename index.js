@@ -51,7 +51,7 @@ const port = process.env.PORT || 3001;
 app.use(express.json());
 
 // 사용할 모델
-const TEXT_MODEL = "gemini-2.0-flash-lite";
+const TEXT_MODEL = "gemini-2.0-flash";
 
 // HTTP 서버 시작
 const server = app.listen(port, () => {

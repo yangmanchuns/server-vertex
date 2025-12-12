@@ -25,8 +25,7 @@ if (process.env.GOOGLE_CREDENTIALS) {
 // --------------------------------------------
 const vertexAI = new VertexAI({
   project: keyJson.project_id, // 키 JSON에서 project_id 자동 추출
-  location: process.env.GCP_LOCATION || "us-central1",
-  credentials: keyJson, // 🔥 Render 환경변수로 전달된 JSON 키 사용
+  location: process.env.GCP_LOCATION || "us-central1"
 });
 
 // HTTP + WebSocket Server

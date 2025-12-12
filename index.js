@@ -8,25 +8,34 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import { VertexAI } from "@google-cloud/vertexai";
 
-// keyJson을 파일로 저장
-const tempPath = path.resolve("/tmp/vertex-key.json");
-fs.writeFileSync(tempPath, process.env.GOOGLE_CREDENTIALS);
+let keyJson;
 
-// 환경변수로 경로 지정
-process.env.GOOGLE_APPLICATION_CREDENTIALS = tempPath;
+if (process.env.GOOGLE_CREDENTIALS) {
+  const raw = process.env.GOOGLE_CREDENTIALS;
+  const fixed = raw.replace(/\\n/g, '\n'); // 🔥 줄바꿈 복원
+  keyJson = JSON.parse(fixed);
+} else {
+  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
+}
+
+// Vertex AI 인증 환경 변수 등록
+process.env.GOOGLE_APPLICATION_CREDENTIALS = "/tmp/gcp-key.json"; // ⬅️ 안전한 임시 경로
+
+// 파일로 저장
+fs.writeFileSync("/tmp/gcp-key.json", JSON.stringify(keyJson));
 
 // --------------------------------------------
 // 🔑 GOOGLE_CREDENTIALS 환경변수(JSON) 파싱
 // --------------------------------------------
-let keyJson;
+// let keyJson;
 
-if (process.env.GOOGLE_CREDENTIALS) {
-  // 🔹 Render 배포환경: 환경변수에서 JSON 파싱
-  keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-} else {
-  // 🔹 로컬 개발환경: vertex-key.json 파일에서 읽기
-  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
-}
+// if (process.env.GOOGLE_CREDENTIALS) {
+//   // 🔹 Render 배포환경: 환경변수에서 JSON 파싱
+//   keyJson = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+// } else {
+//   // 🔹 로컬 개발환경: vertex-key.json 파일에서 읽기
+//   keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
+// }
 
 // --------------------------------------------
 // Vertex AI 초기화 (credentials 직접 주입)

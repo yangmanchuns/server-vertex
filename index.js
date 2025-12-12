@@ -11,13 +11,11 @@ import { VertexAI } from "@google-cloud/vertexai";
 // 환경변수에서 키 로딩
 let keyJson;
 
-if (process.env.GOOGLE_CREDENTIALS) {
-  const fixed = process.env.GOOGLE_CREDENTIALS.replace(/\\n/g, '\n');
-  keyJson = JSON.parse(fixed);
-  console.log("🔥Render 환경 - keyJson 불러옴");
+if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+  const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, "base64").toString("utf-8");
+  keyJson = JSON.parse(decoded);
 } else {
-  keyJson = JSON.parse(fs.readFileSync('./vertex-key.json', 'utf-8'));
-  console.log("🔥로컬 환경 - vertex-key.json 로드");
+  keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
 }
 
 // --------------------------------------------

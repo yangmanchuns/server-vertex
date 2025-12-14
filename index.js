@@ -187,3 +187,12 @@ wss.on("connection", (ws) => {
     await callVertexStream([{ text: String(msg.data ?? "") }]);
   });
 });
+
+app.post("/slack/events", (req, res) => {
+  // Slack URL 검증용
+  if (req.body.type === "url_verification") {
+    return res.status(200).send(req.body.challenge);
+  }
+
+  res.sendStatus(200);
+});

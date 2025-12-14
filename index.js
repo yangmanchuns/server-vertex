@@ -188,10 +188,43 @@ wss.on("connection", (ws) => {
   });
 });
 
-app.post("/slack/events", (req, res) => {
-  // Slack URL 검증용
-  if (req.body.type === "url_verification") {
-    return res.status(200).send(req.body.challenge);
+app.post("/slack/events", async (req, res) => {
+  // 1. URL 검증
+  if (body.type === "url_verification") {
+    return res.status(200).send(body.challenge);
+  }
+
+  // 2. 이벤트 콜백
+  if (body.type === "event_callback") {
+    const event = body.event;
+
+    // bot이 보낸 메시지는 무시 (무한루프 방지)
+    if (event.bot_id) {
+      return res.sendStatus(200);
+    }
+
+    // 메시지 이벤트만 처리
+    if (event.type === "message" && event.text) {
+      const userText = event.text;
+
+      // 👉 여기서 기존 AI 로직 재사용
+      const aiAnswer = await askAI(userText); // 만춘님 기존 함수
+
+      // Slack에 응답
+      await fetch("https://slack.com/api/chat.postMessage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+        },
+        body: JSON.stringify({
+          channel: event.channel,
+          text: aiAnswer,
+        }),
+      });
+    }
+
+    return res.sendStatus(200);
   }
 
   res.sendStatus(200);

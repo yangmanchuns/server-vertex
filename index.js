@@ -193,8 +193,9 @@ async function askAI(text) {
     model: TEXT_MODEL
   });
 
-  const result = await model.generateContent(text);
-  return result.response.text();
+    const result = await model.generateContent(text);
+
+    return result.response.candidates[0].content.parts[0].text;
 }
 
 app.post("/slack/events", async (req, res) => {

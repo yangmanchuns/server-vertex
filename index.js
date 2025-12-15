@@ -35,7 +35,7 @@ const TEXT_MODEL = "gemini-2.0-flash";
 const mssqlConfig = {
   user: process.env.MSSQL_USER,
   password: process.env.MSSQL_PASSWORD,
-  server: "20.20.0.90",
+  server: process.env.MSSQL_SERVER || "20.20.0.90",
   database: process.env.MSSQL_DATABASE,
   options: {
     encrypt: false,
@@ -48,9 +48,14 @@ const mssqlConfig = {
   },
 };
 
+const isMssqlConfigured = Boolean(process.env.MSSQL_SERVER);
 let mssqlPool;
 
 async function getMssqlPool() {
+  if (!isMssqlConfigured) {
+    throw new Error("MSSQL is not configured; set MSSQL_SERVER to enable it.");
+  }
+
   if (!mssqlPool) {
     mssqlPool = await sql.connect(mssqlConfig);
   }
@@ -64,6 +69,8 @@ async function saveChatHistory({
   question,
   answer,
 }) {
+  if (!isMssqlConfigured) return;
+
   const pool = await getMssqlPool();
 
   await pool
@@ -227,6 +234,12 @@ app.post("/slack/events", async (req, res) => {
    8. 관리자 조회 API
 ====================================================== */
 app.get("/admin/ai/history", async (req, res) => {
+  if (!isMssqlConfigured) {
+    return res.status(503).json({
+      error: "MSSQL is not configured; set MSSQL_SERVER to enable history storage.",
+    });
+  }
+
   const pool = await getMssqlPool();
   const result = await pool
     .request()

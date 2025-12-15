@@ -188,6 +188,15 @@ wss.on("connection", (ws) => {
   });
 });
 
+async function askAI(text) {
+  const model = vertexAI.getGenerativeModel({
+    model: TEXT_MODEL
+  });
+
+  const result = await model.generateContent(text);
+  return result.response.text();
+}
+
 app.post("/slack/events", async (req, res) => {
   const body = req.body;
   // 1. URL 검증
@@ -230,3 +239,4 @@ app.post("/slack/events", async (req, res) => {
 
   res.sendStatus(200);
 });
+

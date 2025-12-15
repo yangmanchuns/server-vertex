@@ -189,6 +189,7 @@ wss.on("connection", (ws) => {
 });
 
 app.post("/slack/events", async (req, res) => {
+  const body = req.body;
   // 1. URL 검증
   if (body.type === "url_verification") {
     return res.status(200).send(body.challenge);

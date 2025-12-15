@@ -2,11 +2,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import express from "express";
 import { WebSocketServer } from "ws";
 import { VertexAI } from "@google-cloud/vertexai";
+import sql from "mssql";
 
 // 환경변수에서 키 로딩
 // let keyJson;
@@ -17,6 +19,92 @@ import { VertexAI } from "@google-cloud/vertexai";
 // } else {
 //   keyJson = JSON.parse(fs.readFileSync("./vertex-key.json", "utf-8"));
 // }
+
+const mssqlConfig = {
+  user: process.env.MSSQL_USER,
+  password: process.env.MSSQL_PASSWORD,
+  server: "20.20.0.90",
+  database: process.env.MSSQL_DATABASE,
+  options: {
+    encrypt: false,          // 내부망
+    trustServerCertificate: true
+  },
+  pool: {
+    max: 5,
+    min: 0,
+    idleTimeoutMillis: 30000
+  }
+};
+
+let mssqlPool;
+
+async function getMssqlPool() {
+  if (!mssqlPool) {
+    mssqlPool = await sql.connect(mssqlConfig);
+  }
+  return mssqlPool;
+}
+
+async function saveChatHistory({
+  sourceType,
+  channelId,
+  userId,
+  question,
+  answer
+}) {
+  const pool = await getMssqlPool();
+
+  await pool.request()
+    .input("SourceType", sql.VarChar(20), sourceType)
+    .input("ChannelID", sql.VarChar(50), channelId)
+    .input("UserID", sql.VarChar(50), userId)
+    .input("Question", sql.NVarChar(sql.MAX), question)
+    .input("Answer", sql.NVarChar(sql.MAX), answer)
+    .query(`
+      INSERT INTO AIChatHistory
+      (SourceType, ChannelID, UserID, Question, Answer)
+      VALUES
+      (@SourceType, @ChannelID, @UserID, @Question, @Answer)
+    `);
+}
+
+const aiAnswer = await askAI(userText);
+
+// 🔹 MSSQL 히스토리 저장
+await saveChatHistory({
+  sourceType: "SLACK",
+  channelId: event.channel,
+  userId: event.user,
+  question: userText,
+  answer: aiAnswer
+});
+
+// 🔹 Slack 응답
+await fetch("https://slack.com/api/chat.postMessage", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+  },
+  body: JSON.stringify({
+    channel: event.channel,
+    text: aiAnswer,
+  }),
+});
+
+app.get("/admin/ai/history", async (req, res) => {
+  const pool = await getMssqlPool();
+
+  const result = await pool.request()
+    .query(`
+      SELECT TOP 100 *
+      FROM AIChatHistory
+      ORDER BY HistoryID DESC
+    `);
+
+  res.json(result.recordset);
+});
+
 
 if (process.env.GOOGLE_CREDENTIALS_BASE64) {
   const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
@@ -48,7 +136,11 @@ const vertexAI = new VertexAI({
 // HTTP + WebSocket Server
 const app = express();
 const port = process.env.PORT || 3001;
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString("utf8");
+  }
+}));
 
 // 사용할 모델
 const TEXT_MODEL = "gemini-2.0-flash";
@@ -188,6 +280,29 @@ wss.on("connection", (ws) => {
   });
 });
 
+function verifySlack(req) {
+  const signingSecret = process.env.SLACK_SIGNING_SECRET;
+  if (!signingSecret) return true; // 설정 안 했으면 일단 통과(테스트용)
+
+  const ts = req.headers["x-slack-request-timestamp"];
+  const sig = req.headers["x-slack-signature"];
+  if (!ts || !sig) return false;
+
+  // 재전송/리플레이 방지(5분)
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - Number(ts)) > 60 * 5) return false;
+
+  const base = `v0:${ts}:${req.rawBody || ""}`;
+  const hmac = crypto.createHmac("sha256", signingSecret).update(base).digest("hex");
+  const expected = `v0=${hmac}`;
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+  } catch {
+    return false;
+  }
+}
+
 async function askAI(text) {
   const model = vertexAI.getGenerativeModel({
     model: TEXT_MODEL
@@ -199,6 +314,8 @@ async function askAI(text) {
 }
 
 app.post("/slack/events", async (req, res) => {
+  if (!verifySlack(req)) return res.sendStatus(401);
+
   const body = req.body;
   // 1. URL 검증
   if (body.type === "url_verification") {
@@ -219,7 +336,7 @@ app.post("/slack/events", async (req, res) => {
       const userText = event.text;
 
       // 👉 여기서 기존 AI 로직 재사용
-      const aiAnswer = await askAI(userText); // 만춘님 기존 함수
+      const aiAnswer = await askAI(userText); 
 
       // Slack에 응답
       await fetch("https://slack.com/api/chat.postMessage", {

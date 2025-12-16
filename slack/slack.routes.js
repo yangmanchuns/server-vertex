@@ -50,7 +50,7 @@ slackRouter.post("/events", async (req, res) => {
   }
   return;
 }
-  
+
   return res.sendStatus(200);
 });
 
@@ -60,28 +60,75 @@ async function handleMessage(channel, userText) {
   const plan = await planFromText(userText);
 
   if (plan.action === "test_commit_push") {
-    await postSlackMessage(channel, "🧪 테스트 실행 중...");
-    const result = await executeTestCommitPush(plan.commitMessage);
+  await postSlackMessage(channel, "🧪 테스트 실행 중...");
+  const result = await executeTestCommitPush(plan.commitMessage);
 
-    if (!result.success) {
-      await postSlackMessage(channel, `❌ 테스트 실패\n\`\`\`\n${result.error}\n\`\`\``);
-    } else {
-      await postSlackMessage(channel, "✅ 테스트 통과\n📦 Git commit & push 완료");
+  if (!result.success) {
+    // 테스트 실패 or git 실패
+    if (result.step === "test") {
+      await postSlackMessage(
+        channel,
+        `❌ 테스트 실패\n\`\`\`\n${result.test?.output || "unknown"}\n\`\`\``
+      );
+    } else if (result.step === "git") {
+      await postSlackMessage(
+        channel,
+        `❌ Git 실패\n\`\`\`\n${JSON.stringify(result.git, null, 2)}\n\`\`\``
+      );
     }
     return;
   }
 
-  if (plan.action === "commit_push") {
-    await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
-    const result = await executeCommitPushOnly(plan.commitMessage);
+  // ✅ 여기서부터 성공 케이스를 세분화
+  const git = result.git;
 
-    if (!result.success) {
-      await postSlackMessage(channel, `❌ Git 실패\n\`\`\`\n${result.error || "unknown"}\n\`\`\``);
-    } else {
-      await postSlackMessage(channel, "✅ Git commit & push 완료");
-    }
+  // 변경사항 없음
+  if (git?.result === "no_changes" || git === "no changes") {
+    await postSlackMessage(
+      channel,
+      `ℹ️ 변경사항 없음\n현재 HEAD:\n\`\`\`\n${git.head || "unknown"}\n\`\`\``
+    );
     return;
   }
+
+  // 실제 push 성공
+  await postSlackMessage(
+    channel,
+    `✅ 테스트 통과\n📦 Git push 완료\n\n브랜치: ${git.branch || "main"}\n커밋: ${git.head || "unknown"}`
+  );
+  return;
+}
+
+
+ if (plan.action === "commit_push") {
+  await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
+  const result = await executeCommitPushOnly(plan.commitMessage);
+
+  if (!result.success) {
+    await postSlackMessage(
+      channel,
+      `❌ Git 실패\n\`\`\`\n${JSON.stringify(result.git, null, 2)}\n\`\`\``
+    );
+    return;
+  }
+
+  const git = result.git;
+
+  if (git?.result === "no_changes" || git === "no changes") {
+    await postSlackMessage(
+      channel,
+      `ℹ️ 변경사항 없음\n현재 HEAD:\n\`\`\`\n${git.head || "unknown"}\n\`\`\``
+    );
+    return;
+  }
+
+  await postSlackMessage(
+    channel,
+    `✅ Git push 완료\n브랜치: ${git.branch || "main"}\n커밋: ${git.head || "unknown"}`
+  );
+  return;
+}
+
 
   // chat
   const aiAnswer = await askAI(userText);

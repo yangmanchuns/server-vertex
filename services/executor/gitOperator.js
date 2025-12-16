@@ -52,9 +52,13 @@ export async function gitCommitPush(message = "chore: automated commit") {
 
     const authRepo = repo.replace(
       "https://",
-      `https://${user}:***@`
+      `https://${user}:${token}@`
     );
-    console.log("[GIT] remote(url masked):", authRepo);
+    const maskedRepo = repo.replace(
+      "https://",
+      `https://${user}:***@`
+);
+    console.log("[GIT] remote(url masked):", maskedRepo);
 
     // identity 설정
     await execCmd(`git config user.name "AI-Auto-Bot"`);
@@ -62,7 +66,7 @@ export async function gitCommitPush(message = "chore: automated commit") {
 
     // remote 재설정
     await execCmd("git remote remove origin").catch(() => {});
-    await execCmd(`git remote add origin ${repo}`);
+    await execCmd(`git remote add origin ${authRepo}`);
 
     const remoteInfo = await execCmd("git remote -v");
     console.log("[GIT] remote -v:\n", remoteInfo);

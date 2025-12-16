@@ -52,9 +52,20 @@ slackRouter.post("/events", async (req, res) => {
             );
           }
         } catch (e) {
+          const errorMessage =
+                typeof e === "string"
+                  ? e
+                  : e?.log
+                  ? e.log
+                  : e?.output
+                  ? e.output
+                  : e?.message
+                  ? e.message
+                  : JSON.stringify(e, null, 2);
+
           await postSlackMessage(
             event.channel,
-            `🚨 실행 중 오류 발생\n${e.toString()}`
+            `🚨 실행 중 오류 발생\n\`\`\`\n${errorMessage}\n\`\`\``
           );
         }
 

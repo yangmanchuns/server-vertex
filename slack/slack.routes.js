@@ -24,9 +24,17 @@ slackRouter.post("/events", async (req, res) => {
     if (event?.bot_id) return res.sendStatus(200);
 
     if (event?.type === "message" && event?.text) {
-      const userText = event.text.trim();
+     const rawText = event.text || "";
 
-      if (userText === "/auto test") {
+      // 1️⃣ 봇 멘션 제거
+      const userText = rawText
+        .replace(/<@[^>]+>/g, "")   // <@Uxxxx> 제거
+        .trim()
+        .toLowerCase();
+
+      // 2️⃣ 명령 분기
+      if (userText === "test" || userText === "auto test") {
+
         await postSlackMessage(event.channel, "🧪 테스트 실행 중...");
 
         try {

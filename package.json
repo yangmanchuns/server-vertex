@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node --openssl-legacy-provider index.js",
-    "test": "mocha \"server/tests/**/*.test.js\""
+    "test": "node ./node_modules/mocha/bin/mocha \"server/tests/**/*.test.js\""
   },
   "dependencies": {
     "@google-cloud/vertexai": "^1.10.0",

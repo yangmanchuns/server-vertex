@@ -28,3 +28,9 @@ export async function executeTestCommitPush() {
     result,
   };
 }
+
+
+export async function executeCommitPushOnly(commitMessage = "chore: auto commit") {
+  const gitResult = await gitCommitPush(commitMessage);
+  return { success: true, step: "done", git: gitResult };
+}

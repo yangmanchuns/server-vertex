@@ -2,9 +2,16 @@ import { Router } from "express";
 import { verifySlack } from "./verifySlack.js";
 import { askAI } from "../services/ai.service.js";
 import { postSlackMessage } from "./slackClient.js";
-import { executeTestCommitPush } from "../services/executor/executor.js";
+import { isDuplicateEvent } from "./eventDedup.js";
+import { planFromText } from "../services/planner.service.js";
+import { executeTestCommitPush, executeCommitPushOnly } from "../services/executor/executor.js";
+
 
 export const slackRouter = Router();
+
+function stripMention(text) {
+  return (text || "").replace(/<@[^>]+>/g, "").trim();
+}
 
 slackRouter.post("/events", async (req, res) => {
   if (!verifySlack(req)) return res.sendStatus(401);
@@ -18,65 +25,65 @@ slackRouter.post("/events", async (req, res) => {
 
   // Event Callback
   if (body.type === "event_callback") {
-    const event = body.event;
+  const eventId = body.event_id;
+  if (isDuplicateEvent(eventId)) return res.sendStatus(200);
 
-    // bot 메시지 무시 (무한루프 방지)
-    if (event?.bot_id) return res.sendStatus(200);
+  // Slack 재전송 방지: 먼저 응답
+  res.sendStatus(200);
 
-    if (event?.type === "message" && event?.text) {
-     const rawText = event.text || "";
+  const event = body.event;
+  if (event?.bot_id) return;
 
-      // 1️⃣ 봇 멘션 제거
-      const userText = rawText
-        .replace(/<@[^>]+>/g, "")   // <@Uxxxx> 제거
-        .trim()
-        .toLowerCase();
+  if (event?.type === "message" && event?.text) {
+    const rawText = event.text;
+    const userText = stripMention(rawText);
 
-      // 2️⃣ 명령 분기
-      if (userText === "test" || userText === "auto test") {
+    // 아래는 비동기로 실행
+    (async () => {
+      await handleMessage(event.channel, userText);
+    })().catch(async (e) => {
+      const msg = typeof e === "string" ? e : (e?.message || JSON.stringify(e));
+      await postSlackMessage(event.channel, `🚨 처리 중 오류\n\`\`\`\n${msg}\n\`\`\``);
+    });
 
-        await postSlackMessage(event.channel, "🧪 테스트 실행 중...");
-
-        try {
-          const result = await executeTestCommitPush();
-
-          if (!result.success) {
-            await postSlackMessage(
-              event.channel,
-              `❌ 테스트 실패\n\n${result.log}`
-            );
-          } else {
-            await postSlackMessage(
-              event.channel,
-              "✅ 테스트 통과\n📦 Git commit & push 완료"
-            );
-          }
-        } catch (e) {
-          const errorMessage =
-                typeof e === "string"
-                  ? e
-                  : e?.log
-                  ? e.log
-                  : e?.output
-                  ? e.output
-                  : e?.message
-                  ? e.message
-                  : JSON.stringify(e, null, 2);
-
-          await postSlackMessage(
-            event.channel,
-            `🚨 실행 중 오류 발생\n\`\`\`\n${errorMessage}\n\`\`\``
-          );
-        }
-
-        return res.sendStatus(200);
-      }
-
-      // 기존 AI 응답
-      const aiAnswer = await askAI(userText);
-      await postSlackMessage(event.channel, aiAnswer);
-    }
+    return;
   }
+  return;
+}
   
   return res.sendStatus(200);
 });
+
+async function handleMessage(channel, userText) {
+  if (!userText) return;
+
+  const plan = await planFromText(userText);
+
+  if (plan.action === "test_commit_push") {
+    await postSlackMessage(channel, "🧪 테스트 실행 중...");
+    const result = await executeTestCommitPush(plan.commitMessage);
+
+    if (!result.success) {
+      await postSlackMessage(channel, `❌ 테스트 실패\n\`\`\`\n${result.error}\n\`\`\``);
+    } else {
+      await postSlackMessage(channel, "✅ 테스트 통과\n📦 Git commit & push 완료");
+    }
+    return;
+  }
+
+  if (plan.action === "commit_push") {
+    await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
+    const result = await executeCommitPushOnly(plan.commitMessage);
+
+    if (!result.success) {
+      await postSlackMessage(channel, `❌ Git 실패\n\`\`\`\n${result.error || "unknown"}\n\`\`\``);
+    } else {
+      await postSlackMessage(channel, "✅ Git commit & push 완료");
+    }
+    return;
+  }
+
+  // chat
+  const aiAnswer = await askAI(userText);
+  await postSlackMessage(channel, aiAnswer);
+}

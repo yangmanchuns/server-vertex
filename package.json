@@ -4,7 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node --openssl-legacy-provider index.js"
+    "start": "node --openssl-legacy-provider index.js",
+    "test": "echo \"TEST PASS (no tests defined)\" && exit 0"
   },
   "dependencies": {
     "@google-cloud/vertexai": "^1.10.0",

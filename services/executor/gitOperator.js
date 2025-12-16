@@ -1,4 +1,16 @@
+import fs from "fs";
+import path from "path";
 import { exec } from "child_process";
+
+const GIT_DIR = path.join(process.cwd(), ".git");
+const LOCK_FILE = path.join(GIT_DIR, "index.lock");
+
+function cleanupGitLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    fs.unlinkSync(LOCK_FILE);
+  }
+}
+
 
 function execCmd(cmd) {
   return new Promise((resolve, reject) => {
@@ -16,6 +28,8 @@ export async function gitCommitPush(message = "chore: automated commit") {
   const user = process.env.GIT_USERNAME;
   const token = process.env.GIT_TOKEN;
   const repo = process.env.GIT_REPO;
+
+  cleanupGitLock(); // 🔥 핵심
 
   if (!user || !token || !repo) {
     throw new Error("GIT_USERNAME / GIT_TOKEN / GIT_REPO 환경변수 누락");

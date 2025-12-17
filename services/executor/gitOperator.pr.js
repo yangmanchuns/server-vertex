@@ -54,6 +54,8 @@ export async function gitCommitAndCreatePR({
       `https://${GIT_USERNAME}:${GIT_TOKEN}@`
     );
 
+    await execCmd("git reset -- '*.json'").catch(() => {});
+    
     // detached HEAD → 새 브랜치 생성
     const branch = nowBranchName();
     await execCmd(`git checkout -b ${branch}`);

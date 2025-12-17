@@ -1,1 +1,5 @@
+# secrets
+gcp-key.json
+*.key.json
+.env
 vertex-key.json 

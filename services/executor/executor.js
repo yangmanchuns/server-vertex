@@ -50,7 +50,7 @@ ${instruction}
 /* ===============================
    1️⃣ modify_code executor
 ================================ */
-
+let isRunning = false;
 export async function executeModifyCode(plan) {
    if (isRunning) {
     throw new Error("Git 작업이 이미 실행 중입니다.");

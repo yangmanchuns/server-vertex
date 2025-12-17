@@ -1,15 +1,16 @@
-// services/executor/executor.js
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
-
 import { askAI } from "../ai.service.js";
 import { runTests } from "./testRunner.js";
 import { gitCommitAndCreatePR } from "./gitOperator.pr.js";
 
-/* ===============================
-   공통 유틸
-================================ */
+const gitLockFile = path.join(process.cwd(), ".git-auto.lock");
+
+if (fs.existsSync(gitLockFile)) {
+  console.log("[LOCK] stale .git-auto.lock detected, removing");
+  fs.unlinkSync(gitLockFile);
+}
 
 function readProjectFile(relPath) {
   const absPath = path.join(process.cwd(), relPath);
@@ -52,11 +53,13 @@ ${instruction}
 ================================ */
 let isRunning = false;
 export async function executeModifyCode(plan) {
+  console.log("[LOCK STATUS] isRunning =", isRunning);
    if (isRunning) {
     throw new Error("Git 작업이 이미 실행 중입니다.");
   }
 
   isRunning = true;
+  console.log("[LOCK] acquire");
 
   try {
     console.log("[EXECUTOR] modify_code start:", plan.targetFile);
@@ -105,6 +108,7 @@ export async function executeModifyCode(plan) {
     };
   }finally {
     isRunning = false;
+    console.log("[LOCK] release");
     }
 }
 

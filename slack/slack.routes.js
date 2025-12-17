@@ -56,11 +56,17 @@ slackRouter.post("/events", async (req, res) => {
     if (plan.action === "modify_code") {
       await postSlackMessage(event.channel, "🛠 코드 수정 및 테스트 진행 중...");
 
-      const result = await executeModifyCode(plan);
+      const modifyResult = await executeModifyCode(plan);
 
       await postSlackMessage(
         event.channel,
-        `✅ 테스트 통과\n📌 PR 생성 완료\n\n${result.pr.prUrl}`
+        `✅ 테스트 통과\n📌 PR 생성 완료\n\n${modifyResult.pr.prUrl}\n\n` +
+        `테스트 요약:\n` +
+        `\`\`\`\n` +
+        `${
+          modifyResult.test?.summary ||
+          modifyResult.test?.output || "테스트 결과 없음"
+        }\n` +`\`\`\``
       );
       return;
     }
@@ -70,19 +76,31 @@ slackRouter.post("/events", async (req, res) => {
     ================================ */
     if (plan.action === "test_commit_push") {
       await postSlackMessage(event.channel, "🧪 테스트 실행 중...");
+      const testResult = await executeTestCommitPush();
 
-      const result = await executeTestCommitPush();
-
-      if (!result.success) {
+      if (!testResult.success) {
         await postSlackMessage(
           event.channel,
-          `❌ 테스트 실패\n\`\`\`\n${result.test?.output || "unknown"}\n\`\`\``
+          `❌ 테스트 실패\n\`\`\`\n${testResult.test?.output || "unknown"}\n\`\`\``
         );
       } else {
         await postSlackMessage(
           event.channel,
-          `✅ 테스트 통과\n📌 PR 생성 완료\n\n${result.git.prUrl}`
+          `✅ 테스트 통과\n📌 PR 생성 완료\n\n${testResult.git.prUrl}\n\n` +
+          `테스트 요약:\n` +
+          `\`\`\`\n` +
+          `${
+            testResult.test?.summary ||
+            testResult.test?.output || "테스트 결과 없음"
+          }\n` + `\`\`\``
         );
+        // await postSlackMessage(
+        //   event.channel,
+        //   `✅ 테스트 통과\n📌 PR 생성 완료\n\n${testResult.git.prUrl}`
+        // );
+
+
+
       }
       return;
     }
@@ -92,7 +110,6 @@ slackRouter.post("/events", async (req, res) => {
     ================================ */
     const aiAnswer = await askAI(userText);
     await postSlackMessage(event.channel, aiAnswer);
-
   } catch (e) {
     const msg =
       typeof e === "string" ? e : e?.message || JSON.stringify(e);

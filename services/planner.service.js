@@ -1,4 +1,6 @@
 import { askAI } from "./ai.service.js";
+import { buildFileIndex } from "./code/fileIndex.service.js";
+import { resolveFileByExactName } from "./code/fileResolve.service.js";
 
 const SYSTEM_RULES = `
 너는 Slack에서 들어온 개발 자동화 요청을 "계획(JSON)"으로 바꾸는 Planner다.
@@ -43,7 +45,8 @@ modify_code 추가 규칙:
 
 export async function planFromText(userText) {
   const prompt = `${SYSTEM_RULES}\n\n사용자 메시지:\n${userText}\n`;
-  const raw = await askAI(prompt);
+  const raw = await askAI(prompt);  
+  const fileIndex = buildFileIndex();
 
   const jsonText = extractFirstJsonObject(raw);
   let plan = JSON.parse(jsonText);
@@ -52,11 +55,15 @@ export async function planFromText(userText) {
   if (!plan.action) plan.action = "chat";
   if (!plan.commitMessage) plan.commitMessage = "chore: automated changes";
 
-  // 🔹 modify_code 보정 (LLM이 파일 못 넣었을 때만)
   if (plan.action === "modify_code") {
     if (!plan.targetFile) {
-      plan.targetFile = extractFileName(userText);
+      plan.targetFile = resolveFileByExactName(fileIndex, userText);
     }
+
+    if (!plan.targetFile) {
+      throw new Error("수정할 파일을 찾을 수 없습니다.");
+    }
+
     if (!plan.instruction) {
       plan.instruction = userText;
     }

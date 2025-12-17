@@ -103,22 +103,22 @@ async function handleMessage(channel, userText) {
 //     return;
 //   }
 
-  const git = result.git;
+//   const git = result.git;
 
-  if (git?.result === "no_changes" || git === "no changes") {
-    await postSlackMessage(
-      channel,
-      `ℹ️ 변경사항 없음\n현재 HEAD:\n\`\`\`\n${git.head || "unknown"}\n\`\`\``
-    );
-    return;
-  }
+//   if (git?.result === "no_changes" || git === "no changes") {
+//     await postSlackMessage(
+//       channel,
+//       `ℹ️ 변경사항 없음\n현재 HEAD:\n\`\`\`\n${git.head || "unknown"}\n\`\`\``
+//     );
+//     return;
+//   }
 
-  await postSlackMessage(
-    channel,
-    `✅ Git push 완료\n브랜치: ${git.branch || "main"}\n커밋: ${git.head || "unknown"}`
-  );
-  return;
-}
+//   await postSlackMessage(
+//     channel,
+//     `✅ Git push 완료\n브랜치: ${git.branch || "main"}\n커밋: ${git.head || "unknown"}`
+//   );
+//   return;
+// }
 
 
   // chat

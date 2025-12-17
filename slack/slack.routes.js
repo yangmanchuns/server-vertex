@@ -58,7 +58,8 @@ async function handleMessage(channel, userText) {
   if (!userText) return;
 
   const plan = await planFromText(userText);
-
+  console.log("[PLAN]", plan);
+  
   if (plan.action === "test_commit_push") {
     await postSlackMessage(channel, "🧪 테스트 실행 중...");
     const result = await executeTestCommitPush();

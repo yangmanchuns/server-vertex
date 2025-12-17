@@ -55,10 +55,20 @@ export async function planFromText(userText) {
   if (!plan.action) plan.action = "chat";
   if (!plan.commitMessage) plan.commitMessage = "chore: automated changes";
 
+  const isPathLike = plan.targetFile?.includes("/");
+
+  console.log("[PLANNER] before resolve", {
+    targetFile: plan.targetFile,
+    isPathLike,
+  });
+
+
   if (plan.action === "modify_code") {
     if (!plan.targetFile) {
       plan.targetFile = resolveFileByExactName(fileIndex, userText);
     }
+    
+    console.log("[PLANNER] after resolve", plan.targetFile);
 
     if (!plan.targetFile) {
       throw new Error("수정할 파일을 찾을 수 없습니다.");
@@ -67,7 +77,7 @@ export async function planFromText(userText) {
     if (!plan.instruction) {
       plan.instruction = userText;
     }
-    console.log("[EXECUTOR] modify_code start", plan.targetFile);
+    console.log("[PLANNER RAW targetFile]", plan.targetFile);
   }
 
   // 🔹 허용 action 목록 (modify_code 추가!)

@@ -2,46 +2,85 @@ import { askAI } from "./ai.service.js";
 
 const SYSTEM_RULES = `
 너는 Slack에서 들어온 개발 자동화 요청을 "계획(JSON)"으로 바꾸는 Planner다.
-반드시 JSON만 출력한다. 설명/문장/코드블록 금지.
+반드시 JSON만 출력한다. 설명, 문장, 코드블록, 마크다운 금지.
 
 허용 작업(action) 목록:
+- "modify_code"
 - "test_commit_push"
 - "commit_push"
 - "chat"
 
-판단 규칙:
-- 사용자가 테스트/테스트 실행/검증/ci 라고 하면 test_commit_push
-- 사용자가 커밋/푸시만/commit/push 라고 하고 테스트 언급 없으면 commit_push
-- 그 외는 chat
+작업 판단 규칙:
+1. 사용자가 특정 파일(.js 등)을 언급하며
+   "수정", "고쳐", "바꿔", "변경", "추가", "개선" 중 하나라도 포함하면
+   → action = "modify_code"
+
+2. 사용자가 테스트/테스트 실행/검증/ci 를 언급하면
+   → action = "test_commit_push"
+
+3. 사용자가 커밋/푸시/commit/push 만 요청하고
+   테스트 언급이 없으면
+   → action = "commit_push"
+
+4. 그 외 모든 경우
+   → action = "chat"
+
+modify_code 추가 규칙:
+- targetFile은 사용자가 언급한 파일 경로를 문자열로 지정
+- instruction은 "무엇을 어떻게 수정할지"를 자연어로 요약
+- commitMessage는 수정 내용에 맞게 생성 (없으면 기본값 사용)
 
 출력 JSON 스키마:
 {
-  "action": "test_commit_push" | "commit_push" | "chat",
-  "reason": "짧게",
-  "commitMessage": "필요 시(기본값 가능)"
+  "action": "modify_code" | "test_commit_push" | "commit_push" | "chat",
+  "reason": "판단 이유를 짧게",
+  "targetFile": "modify_code일 때 필수, 아니면 null",
+  "instruction": "modify_code일 때 필수, 아니면 null",
+  "commitMessage": "필요 시(없으면 기본값)"
 }
 `;
+
 
 export async function planFromText(userText) {
   const prompt = `${SYSTEM_RULES}\n\n사용자 메시지:\n${userText}\n`;
   const raw = await askAI(prompt);
 
-  // JSON만 뽑기 (가끔 앞뒤에 글 섞이면 방어)
   const jsonText = extractFirstJsonObject(raw);
-  const plan = JSON.parse(jsonText);
+  let plan = JSON.parse(jsonText);
 
-  // 최소 검증 + 기본값
+  // 🔹 action 기본값
   if (!plan.action) plan.action = "chat";
-  if (!plan.reason) plan.reason = "auto-planned";
   if (!plan.commitMessage) plan.commitMessage = "chore: automated changes";
 
-  // 허용 action만
-  if (!["test_commit_push", "commit_push", "chat"].includes(plan.action)) {
-    return { action: "chat", reason: "invalid_action", commitMessage: "chore: automated changes" };
+  // 🔹 modify_code 보정 (LLM이 파일 못 넣었을 때만)
+  if (plan.action === "modify_code") {
+    if (!plan.targetFile) {
+      plan.targetFile = extractFileName(userText);
+    }
+    if (!plan.instruction) {
+      plan.instruction = userText;
+    }
+  }
+
+  // 🔹 허용 action 목록 (modify_code 추가!)
+  const allowedActions = [
+    "modify_code",
+    "test_commit_push",
+    "commit_push",
+    "chat",
+  ];
+
+  if (!allowedActions.includes(plan.action)) {
+    return {
+      action: "chat",
+      reason: "invalid_action",
+      commitMessage: "chore: automated changes",
+    };
   }
 
   return plan;
 }
+
 
 function extractFirstJsonObject(text) {
   const start = text.indexOf("{");

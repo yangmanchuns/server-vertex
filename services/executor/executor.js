@@ -1,25 +1,9 @@
 import { runTests } from "./testRunner.js";
-import { gitCommitPush } from "./gitOperator.js";
+import { gitCommitAndCreatePR } from "./gitOperator.pr.js";
 
-export async function executeTestAndCreatePR() {
-  const test = await runTests();
-  if (!test.success) {
-    return { success: false, step: "test", test };
-  }
-
-  const git = await gitCommitAndCreatePR({
-    commitMessage: "chore: automated changes",
-    prTitle: "🤖 AI 자동 테스트 통과",
-    prBody: "Slack 명령으로 실행된 자동 PR입니다.",
-  });
-
-  return { success: true, step: "done", test, git };
-}
-
-export async function executeTestCommitPush(commitMessage = "chore: auto commit after test pass") {
+export async function executeTestCommitPush() {
   // 1️⃣ 테스트
   const testResult = await runTests();
-
   if (!testResult.success) {
     return {
       success: false,
@@ -28,40 +12,17 @@ export async function executeTestCommitPush(commitMessage = "chore: auto commit 
     };
   }
 
-  // 2️⃣ Git
-  const gitResult = await gitCommitPush(commitMessage);
-
-  // gitResult 기준으로 최종 성공 판단
-  if (!gitResult?.ok && gitResult !== "push success") {
-    return {
-      success: false,
-      step: "git",
-      git: gitResult,
-    };
-  }
+  // 2️⃣ PR 생성 (🔥 여기 바뀜)
+  const gitResult = await gitCommitAndCreatePR({
+    commitMessage: "chore: automated changes",
+    prTitle: "🤖 Automated PR (tests passed)",
+    prBody: "Slack 명령으로 테스트 통과 후 생성된 PR입니다.",
+  });
 
   return {
     success: true,
     step: "done",
     test: testResult,
-    git: gitResult,
-  };
-}
-
-export async function executeCommitPushOnly(commitMessage = "chore: auto commit") {
-  const gitResult = await gitCommitPush(commitMessage);
-
-  if (!gitResult?.ok && gitResult !== "push success") {
-    return {
-      success: false,
-      step: "git",
-      git: gitResult,
-    };
-  }
-
-  return {
-    success: true,
-    step: "done",
     git: gitResult,
   };
 }

@@ -55,6 +55,10 @@ export async function planFromText(userText) {
   if (!plan.action) plan.action = "chat";
   if (!plan.commitMessage) plan.commitMessage = "chore: automated changes";
 
+  function isRelativePath(p) {
+    return typeof p === "string" && p.includes("/");
+  }
+
   const isPathLike = plan.targetFile?.includes("/");
 
   console.log("[PLANNER] before resolve", {
@@ -64,9 +68,13 @@ export async function planFromText(userText) {
 
 
   if (plan.action === "modify_code") {
-    if (!plan.targetFile) {
-      plan.targetFile = resolveFileByExactName(fileIndex, userText);
+    if (!isRelativePath(plan.targetFile)) {
+      plan.targetFile = resolveFileByExactName(
+        fileIndex,
+        plan.targetFile
+      );
     }
+
     
     console.log("[PLANNER] after resolve", plan.targetFile);
 

@@ -60,6 +60,7 @@ export async function planFromText(userText) {
     if (!plan.instruction) {
       plan.instruction = userText;
     }
+    console.log("[EXECUTOR] modify_code start", plan.targetFile);
   }
 
   // 🔹 허용 action 목록 (modify_code 추가!)

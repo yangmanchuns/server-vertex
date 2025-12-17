@@ -1,11 +1,20 @@
+// slack/slack.routes.js
 import { Router } from "express";
+
 import { verifySlack } from "./verifySlack.js";
-import { askAI } from "../services/ai.service.js";
 import { postSlackMessage } from "./slackClient.js";
 import { isDuplicateEvent } from "./eventDedup.js";
-import { planFromText } from "../services/planner.service.js";
-import { executeTestCommitPush } from "../services/executor/executor.js";
 
+import { askAI } from "../services/ai.service.js";
+import { planFromText } from "../services/planner.service.js";
+
+import {
+  executeTestCommitPush,
+} from "../services/executor/executor.js";
+
+import {
+  executeModifyCode,
+} from "../services/executor/executor.js";
 
 export const slackRouter = Router();
 
@@ -23,106 +32,76 @@ slackRouter.post("/events", async (req, res) => {
     return res.status(200).send(body.challenge);
   }
 
-  // Event Callback
-  if (body.type === "event_callback") {
+  if (body.type !== "event_callback") {
+    return res.sendStatus(200);
+  }
+
   const eventId = body.event_id;
   if (isDuplicateEvent(eventId)) return res.sendStatus(200);
 
-  // Slack 재전송 방지: 먼저 응답
+  // Slack 재전송 방지 (먼저 응답)
   res.sendStatus(200);
 
   const event = body.event;
   if (event?.bot_id) return;
+  if (event?.type !== "message" || !event.text) return;
 
-  if (event?.type === "message" && event?.text) {
-    const rawText = event.text;
-    const userText = stripMention(rawText);
-
-    // 아래는 비동기로 실행
-    (async () => {
-      await handleMessage(event.channel, userText);
-    })().catch(async (e) => {
-      const msg = typeof e === "string" ? e : (e?.message || JSON.stringify(e));
-      await postSlackMessage(event.channel, `🚨 처리 중 오류\n\`\`\`\n${msg}\n\`\`\``);
-    });
-
-    return;
-  }
-  return;
-}
-
-  return res.sendStatus(200);
-});
-
-async function handleMessage(channel, userText) {
+  const userText = stripMention(event.text);
   if (!userText) return;
 
-  const plan = await planFromText(userText);
-  console.log("[PLAN]", plan);
-  
-  if (plan.action === "test_commit_push") {
-    await postSlackMessage(channel, "🧪 테스트 실행 중...");
-    const result = await executeTestCommitPush();
+  try {
+    const plan = await planFromText(userText);
+    console.log("[PLAN]", plan);
 
-    if (!result.success) {
+    /* ===============================
+       modify_code
+    ================================ */
+    if (plan.action === "modify_code") {
+      await postSlackMessage(event.channel, "🛠 코드 수정 및 테스트 진행 중...");
+
+      const result = await executeModifyCode(plan);
+
       await postSlackMessage(
-        channel,
-        `❌ 실패\n\`\`\`\n${JSON.stringify(result, null, 2)}\n\`\`\``
+        event.channel,
+        `✅ 테스트 통과\n📌 PR 생성 완료\n\n${result.pr.prUrl}`
       );
       return;
     }
 
-    // 🔥 PR 기준 메시지
-    if (result.git?.result === "pr_created") {
-      await postSlackMessage(
-        channel,
-        `✅ 테스트 통과\n📌 PR 생성 완료\n\n브랜치: ${result.git.branch}\nPR: ${result.git.prUrl}`
-      );
+    /* ===============================
+       test_commit_push
+    ================================ */
+    if (plan.action === "test_commit_push") {
+      await postSlackMessage(event.channel, "🧪 테스트 실행 중...");
+
+      const result = await executeTestCommitPush();
+
+      if (!result.success) {
+        await postSlackMessage(
+          event.channel,
+          `❌ 테스트 실패\n\`\`\`\n${result.test?.output || "unknown"}\n\`\`\``
+        );
+      } else {
+        await postSlackMessage(
+          event.channel,
+          `✅ 테스트 통과\n📌 PR 생성 완료\n\n${result.git.prUrl}`
+        );
+      }
       return;
     }
 
-    if (result.git?.result === "no_changes") {
-      await postSlackMessage(
-        channel,
-        `ℹ️ 변경사항 없음 → PR 생성 생략\n브랜치: ${result.git.branch}`
-      );
-      return;
-    }
+    /* ===============================
+       chat (기본)
+    ================================ */
+    const aiAnswer = await askAI(userText);
+    await postSlackMessage(event.channel, aiAnswer);
+
+  } catch (e) {
+    const msg =
+      typeof e === "string" ? e : e?.message || JSON.stringify(e);
+    await postSlackMessage(
+      event.channel,
+      `🚨 처리 중 오류\n\`\`\`\n${msg}\n\`\`\``
+    );
   }
-
-
-
-//  if (plan.action === "commit_push") {
-//   await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
-//   const result = await executeCommitPushOnly(plan.commitMessage);
-
-//   if (!result.success) {
-//     await postSlackMessage(
-//       channel,
-//       `❌ Git 실패\n\`\`\`\n${JSON.stringify(result.git, null, 2)}\n\`\`\``
-//     );
-//     return;
-//   }
-
-//   const git = result.git;
-
-//   if (git?.result === "no_changes" || git === "no changes") {
-//     await postSlackMessage(
-//       channel,
-//       `ℹ️ 변경사항 없음\n현재 HEAD:\n\`\`\`\n${git.head || "unknown"}\n\`\`\``
-//     );
-//     return;
-//   }
-
-//   await postSlackMessage(
-//     channel,
-//     `✅ Git push 완료\n브랜치: ${git.branch || "main"}\n커밋: ${git.head || "unknown"}`
-//   );
-//   return;
-// }
-
-
-  // chat
-  const aiAnswer = await askAI(userText);
-  await postSlackMessage(channel, aiAnswer);
-}
+});

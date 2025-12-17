@@ -4,7 +4,7 @@ import { askAI } from "../services/ai.service.js";
 import { postSlackMessage } from "./slackClient.js";
 import { isDuplicateEvent } from "./eventDedup.js";
 import { planFromText } from "../services/planner.service.js";
-import { executeTestCommitPush, executeCommitPushOnly } from "../services/executor/executor.js";
+import { executeTestCommitPush } from "../services/executor/executor.js";
 
 
 export const slackRouter = Router();
@@ -91,17 +91,17 @@ async function handleMessage(channel, userText) {
 
 
 
- if (plan.action === "commit_push") {
-  await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
-  const result = await executeCommitPushOnly(plan.commitMessage);
+//  if (plan.action === "commit_push") {
+//   await postSlackMessage(channel, "📦 커밋/푸시 실행 중...");
+//   const result = await executeCommitPushOnly(plan.commitMessage);
 
-  if (!result.success) {
-    await postSlackMessage(
-      channel,
-      `❌ Git 실패\n\`\`\`\n${JSON.stringify(result.git, null, 2)}\n\`\`\``
-    );
-    return;
-  }
+//   if (!result.success) {
+//     await postSlackMessage(
+//       channel,
+//       `❌ Git 실패\n\`\`\`\n${JSON.stringify(result.git, null, 2)}\n\`\`\``
+//     );
+//     return;
+//   }
 
   const git = result.git;
 

@@ -6,7 +6,6 @@ import { execSync } from "child_process";
 import { askAI } from "../ai.service.js";
 import { runTests } from "./testRunner.js";
 import { gitCommitAndCreatePR } from "./gitOperator.pr.js";
-import { postSlackMessage } from "../slack/slackClient.js";
 
 /* ===============================
    공통 유틸
@@ -54,11 +53,7 @@ ${instruction}
 
 export async function executeModifyCode(plan) {
    if (isRunning) {
-    await postSlackMessage(
-      channel,
-      "⏳ 이미 코드 수정 작업이 진행 중입니다. 잠시 후 다시 시도해주세요."
-    );
-    return;
+    throw new Error("Git 작업이 이미 실행 중입니다.");
   }
 
   isRunning = true;

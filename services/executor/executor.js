@@ -6,6 +6,7 @@ import { execSync } from "child_process";
 import { askAI } from "../ai.service.js";
 import { runTests } from "./testRunner.js";
 import { gitCommitAndCreatePR } from "./gitOperator.pr.js";
+import { postSlackMessage } from "../slack/slackClient.js";
 
 /* ===============================
    공통 유틸
@@ -52,50 +53,64 @@ ${instruction}
 ================================ */
 
 export async function executeModifyCode(plan) {
-  console.log("[EXECUTOR] modify_code start:", plan.targetFile);
-
-  // 1. 파일 읽기
-  const source = readProjectFile(plan.targetFile);
-
-  // 2. diff 생성
-  const diffPrompt = makeDiffPrompt({
-    filePath: plan.targetFile,
-    source,
-    instruction: plan.instruction,
-  });
-
-  const diff = await askAI(diffPrompt, {
-    mode: "diff",
-    temperature: 0,
-  });
-
-  // 3. diff 검증
-  assertUnifiedDiffOnly(diff);
-
-  // 4. patch 적용
-  execSync("git apply", { input: diff });
-
-  // 5. 테스트
-  const testResult = await runTests();
-  if (!testResult.success) {
-    throw new Error("테스트 실패 → PR 생성 중단");
+   if (isRunning) {
+    await postSlackMessage(
+      channel,
+      "⏳ 이미 코드 수정 작업이 진행 중입니다. 잠시 후 다시 시도해주세요."
+    );
+    return;
   }
 
-  // 6. PR 생성
-  const prResult = await gitCommitAndCreatePR({
-    commitMessage: plan.commitMessage || "chore: automated changes",
-    prTitle: `🤖 ${plan.commitMessage || "Automated PR"}`,
-    prBody: `
-AI가 ${plan.targetFile} 파일을 수정하고
-테스트 통과 후 자동 생성한 PR입니다.
-`,
-  });
+  isRunning = true;
 
-  return {
-    success: true,
-    test: testResult,
-    pr: prResult,
-  };
+  try {
+    console.log("[EXECUTOR] modify_code start:", plan.targetFile);
+
+    // 1. 파일 읽기
+    const source = readProjectFile(plan.targetFile);
+
+    // 2. diff 생성
+    const diffPrompt = makeDiffPrompt({
+      filePath: plan.targetFile,
+      source,
+      instruction: plan.instruction,
+    });
+
+    const diff = await askAI(diffPrompt, {
+      mode: "diff",
+      temperature: 0,
+    });
+
+    // 3. diff 검증
+    assertUnifiedDiffOnly(diff);
+
+    // 4. patch 적용
+    execSync("git apply", { input: diff });
+
+    // 5. 테스트
+    const testResult = await runTests();
+    if (!testResult.success) {
+      throw new Error("테스트 실패 → PR 생성 중단");
+    }
+
+    // 6. PR 생성
+    const prResult = await gitCommitAndCreatePR({
+      commitMessage: plan.commitMessage || "chore: automated changes",
+      prTitle: `🤖 ${plan.commitMessage || "Automated PR"}`,
+      prBody: `
+  AI가 ${plan.targetFile} 파일을 수정하고
+  테스트 통과 후 자동 생성한 PR입니다.
+  `,
+    });
+
+    return {
+      success: true,
+      test: testResult,
+      pr: prResult,
+    };
+  }finally {
+    isRunning = false;
+    }
 }
 
 /* ===============================

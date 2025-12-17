@@ -9,11 +9,8 @@ import { askAI } from "../services/ai.service.js";
 import { planFromText } from "../services/planner.service.js";
 
 import {
-  executeTestCommitPush,
-} from "../services/executor/executor.js";
-
-import {
   executeModifyCode,
+  executeTestCommitPush,
 } from "../services/executor/executor.js";
 
 export const slackRouter = Router();

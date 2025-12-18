@@ -117,6 +117,12 @@ export async function executeModifyCode(plan) {
   테스트 통과 후 자동 생성한 PR입니다.
   `,
     });
+    
+    fs.writeFileSync(
+    ".__last.diff",
+    diff,
+    "utf8"
+    );
 
     return {
       success: true,
@@ -127,11 +133,6 @@ export async function executeModifyCode(plan) {
     isRunning = false;
     console.log("[LOCK] release");
 
-    fs.writeFileSync(
-        ".__last.diff",
-        diff,
-        "utf8"
-      );
     }
 }
 

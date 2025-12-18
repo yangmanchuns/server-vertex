@@ -55,16 +55,15 @@ slackRouter.post("/events", async (req, res) => {
     ================================ */
     if (plan.action === "modify_code") {
       await postSlackMessage(event.channel, "🛠 코드 수정 및 테스트 진행 중...");
-
       const modifyResult = await executeModifyCode(plan);
-
       await postSlackMessage(event.channel, `
         🧪 테스트 통과
         📌 PR 생성 완료
         🔀 Auto-merge 대기 중 (조건 충족 시 main 반영)
         🚀 Render 자동 배포 예정
-
         PR: ${modifyResult.pr.url}
+        테스트 요약:
+        \`\`\`\n${modifyResult.testOutput}\n\`\`\`
         브랜치: ${modifyResult.pr.branch}
         
         `
@@ -95,11 +94,6 @@ slackRouter.post("/events", async (req, res) => {
             testResult.test?.output || "테스트 결과 없음"
           }\n` + `\`\`\``
         );
-        // await postSlackMessage(
-        //   event.channel,
-        //   `✅ 테스트 통과\n📌 PR 생성 완료\n\n${testResult.git.prUrl}`
-        // );
-
 
 
       }

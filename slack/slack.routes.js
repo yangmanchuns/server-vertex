@@ -93,11 +93,6 @@ slackRouter.post("/events", async (req, res) => {
             testResult.test?.summary ||
             testResult.test?.output || "테스트 결과 없음"
           }\n` + `\`\`\``
-        );
-        // await postSlackMessage(
-        //   event.channel,
-        //   `✅ 테스트 통과\n📌 PR 생성 완료\n\n${testResult.git.prUrl}`
-        // );
 
 
 

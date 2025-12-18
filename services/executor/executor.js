@@ -90,7 +90,7 @@ export async function executeModifyCode(plan) {
       instruction: plan.instruction,
     });
 
-    const diff = await askAI(diffPrompt, {
+    let diff = await askAI(diffPrompt, {
       mode: "diff",
       temperature: 0,
     });
@@ -117,7 +117,7 @@ export async function executeModifyCode(plan) {
   테스트 통과 후 자동 생성한 PR입니다.
   `,
     });
-    
+
     fs.writeFileSync(
     ".__last.diff",
     diff,

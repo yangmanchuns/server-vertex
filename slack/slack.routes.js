@@ -85,21 +85,24 @@ slackRouter.post("/events", async (req, res) => {
       if (!testResult.success) {
         await postSlackMessage(
           event.channel,
-          `❌ 테스트 실패\n\`\`\`\n${testResult.test?.output || "unknown"}\n\`\`\``
+          `❌ 테스트 실패
+    \`\`\`
+    ${testResult.test?.output || "unknown"}
+    \`\`\``
         );
       } else {
         await postSlackMessage(
           event.channel,
-          `✅ 테스트 통과\n📌 PR 생성 완료\n\n${testResult.git.prUrl}\n\n` +
-          `테스트 요약:\n` +
-          `\`\`\`\n` +
-          `${
-            testResult.test?.summary ||
-            testResult.test?.output || "테스트 결과 없음"
-          }\n` + `\`\`\``
+          `✅ 테스트 통과
+    📌 PR 생성 완료
 
+    ${testResult.git.prUrl}
 
-
+    테스트 요약:
+    \`\`\`
+    ${testResult.test?.summary || testResult.test?.output || "테스트 결과 없음"}
+    \`\`\``
+        );
       }
       return;
     }

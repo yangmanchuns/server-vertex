@@ -59,7 +59,7 @@ slackRouter.post("/events", async (req, res) => {
       const modifyResult = await executeModifyCode(plan);
 
       // 템플릿 리터럴 내부에 변수를 직접 넣어 가독성을 높였습니다.
-      await postSlackMessage(
+        await postSlackMessage(
         event.channel,
         `✅ 테스트 통과
         📌 PR 생성 완료

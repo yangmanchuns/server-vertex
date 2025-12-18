@@ -45,10 +45,6 @@ function assertUnifiedDiffOnly(diff) {
   if (!diff.includes("\n@@")) {
     throw new Error("hunk 헤더(@@) 없음");
   }
-  
-  if (!ok) {
-    throw new Error("AI 출력이 diff 형식이 아님 (설명/문서 차단)");
-  }
 }
 
 function makeDiffPrompt({ filePath, source, instruction }) {

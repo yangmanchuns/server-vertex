@@ -13,8 +13,11 @@ if (fs.existsSync(gitLockFile)) {
 }
 
 function extractUnifiedDiff(text) {
+  if (!text) return "";
+
   const idx = text.indexOf("diff --git");
-  if (idx === -1) return text.trim();
+  if (idx === -1) return "";
+
   return text.slice(idx).trim();
 }
 
@@ -49,20 +52,31 @@ function assertUnifiedDiffOnly(text) {
 
 function makeDiffPrompt({ filePath, source, instruction }) {
   return `
-너는 코드 수정 자동화 봇이다.
-반드시 unified diff만 출력한다.
-설명, 문장, 예시, 코드블록, 마크다운 출력 금지.
+SYSTEM:
+You are a code-modification engine.
+You MUST output ONLY a valid unified diff.
+If you cannot, output NOTHING.
 
-파일 경로: ${filePath}
+Rules (absolute):
+- Output MUST start with "diff --git"
+- Output MUST be a valid unified diff
+- Do NOT include explanations, comments, markdown, or code blocks
+- Do NOT repeat the full file
+- Do NOT say anything before or after the diff
 
-<FILE>
+Target file:
+${filePath}
+
+Original file:
+<<<FILE
 ${source}
-</FILE>
+FILE
 
-요청:
+Change request:
 ${instruction}
 `;
 }
+
 
 /* ===============================
    1️⃣ modify_code executor
@@ -96,6 +110,9 @@ export async function executeModifyCode(plan) {
     });
     diff = extractUnifiedDiff(diff);
     
+    if (!diff) {
+      throw new Error("AI가 unified diff를 반환하지 않았습니다.");}
+
     // 3. diff 검증
     assertUnifiedDiffOnly(diff);
 

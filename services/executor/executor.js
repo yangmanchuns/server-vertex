@@ -5,12 +5,6 @@ import { askAI } from "../ai.service.js";
 import { runTests } from "./testRunner.js";
 import { gitCommitAndCreatePR } from "./gitOperator.pr.js";
 
-fs.writeFileSync(
-  ".__last.diff",
-  diff,
-  "utf8"
-);
-
 const gitLockFile = path.join(process.cwd(), ".git-auto.lock");
 
 if (fs.existsSync(gitLockFile)) {
@@ -47,7 +41,7 @@ function assertUnifiedDiffOnly(text) {
   if (t.match(/```|설명|위와|다음/)) {
     throw new Error("diff 외 텍스트 포함");
   }
-  
+
   if (!ok) {
     throw new Error("AI 출력이 diff 형식이 아님 (설명/문서 차단)");
   }
@@ -132,6 +126,12 @@ export async function executeModifyCode(plan) {
   }finally {
     isRunning = false;
     console.log("[LOCK] release");
+
+    fs.writeFileSync(
+        ".__last.diff",
+        diff,
+        "utf8"
+      );
     }
 }
 

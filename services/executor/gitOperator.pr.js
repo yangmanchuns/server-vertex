@@ -7,11 +7,8 @@ import { acquireGitLock, releaseGitLock } from "./gitLock.js";
 function execCmd(cmd) {
   return new Promise((resolve, reject) => {
     exec(cmd, { cwd: process.cwd() }, (err, stdout, stderr) => {
-      if (err) {
-        reject(stderr || stdout);
-      } else {
-        resolve(stdout.trim());
-      }
+      if (err) reject(stderr || stdout);
+      else resolve(stdout.trim());
     });
   });
 }
@@ -19,6 +16,41 @@ function execCmd(cmd) {
 function nowBranchName() {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   return `auto/${ts}`;
+}
+
+async function enableAutoMerge({ owner, repo, pullRequestId }) {
+  const res = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `bearer ${process.env.GIT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: `
+        mutation EnableAutoMerge($prId: ID!) {
+          enablePullRequestAutoMerge(input: {
+            pullRequestId: $prId,
+            mergeMethod: SQUASH
+          }) {
+            pullRequest {
+              number
+              autoMergeRequest {
+                enabledAt
+              }
+            }
+          }
+        }
+      `,
+      variables: { prId: pullRequestId },
+    }),
+  });
+
+  const json = await res.json();
+  if (json.errors) {
+    throw new Error(
+      "Auto-merge 활성화 실패: " + JSON.stringify(json.errors)
+    );
+  }
 }
 
 export async function gitCommitAndCreatePR({
@@ -48,44 +80,32 @@ export async function gitCommitAndCreatePR({
       throw new Error("Git/GitHub 환경변수 누락");
     }
 
-    // 🔐 인증 포함 origin
     const authRepo = GIT_REPO.replace(
       "https://",
       `https://${GIT_USERNAME}:${GIT_TOKEN}@`
     );
 
     await execCmd("git reset -- '*.json'").catch(() => {});
-    
-    // detached HEAD → 새 브랜치 생성
+
     const branch = nowBranchName();
     await execCmd(`git checkout -b ${branch}`);
 
-    // identity 설정
     await execCmd(`git config user.name "AI-Auto-Bot"`);
     await execCmd(`git config user.email "ai-bot@automation.local"`);
 
-    // 변경사항 확인
     const status = await execCmd("git status --porcelain");
     if (!status) {
-      return {
-        ok: true,
-        result: "no_changes",
-        branch,
-      };
+      return { ok: true, result: "no_changes", branch };
     }
 
-    // 커밋
     await execCmd("git add .");
     await execCmd(`git commit -m "${commitMessage}" --no-gpg-sign`);
 
-    // origin 재설정
     await execCmd("git remote remove origin").catch(() => {});
     await execCmd(`git remote add origin ${authRepo}`);
-
-    // 브랜치 push
     await execCmd(`git push origin ${branch}`);
 
-    // 🔗 PR 생성
+    // 🔹 PR 생성
     const prRes = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/pulls`,
       {
@@ -105,14 +125,20 @@ export async function gitCommitAndCreatePR({
     );
 
     const pr = await prRes.json();
-
-    if (!pr.html_url) {
+    if (!pr.html_url || !pr.node_id) {
       throw new Error(`PR 생성 실패: ${JSON.stringify(pr)}`);
     }
 
+    // 🔥 Auto-merge 활성화
+    await enableAutoMerge({
+      owner: GITHUB_OWNER,
+      repo: GITHUB_REPO,
+      pullRequestId: pr.node_id,
+    });
+
     return {
       ok: true,
-      result: "pr_created",
+      result: "pr_created_auto_merge_enabled",
       branch,
       prUrl: pr.html_url,
       prNumber: pr.number,

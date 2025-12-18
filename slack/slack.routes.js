@@ -60,13 +60,15 @@ slackRouter.post("/events", async (req, res) => {
 
       await postSlackMessage(
         event.channel,
-        `✅ 테스트 통과\n📌 PR 생성 완료\n\n${modifyResult.pr.prUrl}\n\n` +
-        `테스트 요약:\n` +
-        `\`\`\`\n` +
-        `${
-          modifyResult.test?.summary ||
-          modifyResult.test?.output || "테스트 결과 없음"
-        }\n` +`\`\`\``
+        `
+        🧪 테스트 통과
+        📌 PR 생성 완료
+        🔀 Auto-merge 대기 중 (조건 충족 시 main 반영)
+        🚀 Render 자동 배포 예정
+
+        PR: ${result.pr.url}
+        브랜치: ${result.pr.branch}
+        `
       );
       return;
     }

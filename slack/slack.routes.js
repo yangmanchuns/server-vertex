@@ -66,8 +66,8 @@ slackRouter.post("/events", async (req, res) => {
         🔀 Auto-merge 대기 중 (조건 충족 시 main 반영)
         🚀 Render 자동 배포 예정
 
-        PR: ${result.pr.url}
-        브랜치: ${result.pr.branch}
+        PR: ${modifyResult.test.prUrl}
+        브랜치: ${modifyResult.test.pr.branch}
         `
       );
       return;

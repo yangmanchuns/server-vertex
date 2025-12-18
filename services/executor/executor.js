@@ -15,11 +15,18 @@ if (fs.existsSync(gitLockFile)) {
 function extractUnifiedDiff(text) {
   if (!text) return "";
 
-  const idx = text.indexOf("diff --git");
-  if (idx === -1) return "";
+  const start = text.indexOf("diff --git");
+  if (start === -1) return "";
 
-  return text.slice(idx).trim();
+  // diff 이후에 또 다른 diff가 나오면 거기까지만
+  const next = text.indexOf("\ndiff --git", start + 1);
+  const diff = next === -1
+    ? text.slice(start)
+    : text.slice(start, next);
+
+  return diff.trim();
 }
+
 
 
 function readProjectFile(relPath) {
@@ -30,21 +37,15 @@ function readProjectFile(relPath) {
   return fs.readFileSync(absPath, "utf8");
 }
 
-function assertUnifiedDiffOnly(text) {
-  const t = text.trim();
-
-  if (!t.startsWith("diff --git")) {
+function assertUnifiedDiffOnly(diff) {
+  if (!diff.startsWith("diff --git")) {
     throw new Error("diff --git 헤더 없음");
   }
 
-  if (!t.includes("\n@@")) {
+  if (!diff.includes("\n@@")) {
     throw new Error("hunk 헤더(@@) 없음");
   }
-
-  if (t.match(/```|설명|위와|다음/)) {
-    throw new Error("diff 외 텍스트 포함");
-  }
-
+  
   if (!ok) {
     throw new Error("AI 출력이 diff 형식이 아님 (설명/문서 차단)");
   }
